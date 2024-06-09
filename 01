@@ -119,8 +119,7 @@ DEFAULT_PREFIX="${IP6:-2607:f8b0:4001:c2f}"
 # Đọc IPv6 với thời gian chờ 10 giây
 read -r -t 10 -p "Nhập IPv6 của bạn (mặc định: $DEFAULT_PREFIX): " vPrefix
 vPrefix=${vPrefix:-$DEFAULT_PREFIX}
-echo "Địa chỉ IPv6: $vPrefix"
-echo "Internal IP = ${IP4}. IPv6 = $vPrefix"
+echo "Địa chỉ IPv4 = ${IP4}. Địa chỉ IPv6 = $vPrefix"
 
 # Đọc số lượng proxy muốn tạo với thời gian chờ 10 giây
 read -r -t 10 -p "Nhập số lượng proxy muốn tạo (mặc định là 1000): " num_proxies

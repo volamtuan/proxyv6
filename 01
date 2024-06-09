@@ -3,10 +3,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 setup_ipv6() {
     echo "Thiết lập IPv6..."
-    systemctl stop 3proxy
+    sudo service 3proxy stop
     iptables -F
     ip -6 addr flush dev eth0 -w 5
-    systemctl stop 3proxy
     bash <(curl -s "https://raw.githubusercontent.com/quanglinh0208/3proxy/main/ipv6.sh") 
 }
 setup_ipv6

@@ -14,17 +14,9 @@ gen64() {
     echo "$1:$(ip64):$(ip64):$(ip64):$(ip64)"
 }
 
-# Hàm để kiểm tra phiên bản hệ điều hành
-check_os_version() {
-    local os=$(grep -oP '(?<=^ID=)\w+' /etc/os-release)
-    local version=$(grep -oP '(?<=^VERSION_ID=")\d+' /etc/os-release)
-    echo "$os $version"
-}
-
 # Kiểm tra phiên bản hệ điều hành
 os_info=$(check_os_version)
 os=$(echo "$os_info" | awk '{print $1}')
-version=$(echo "$os_info" | awk '{print $2}')
 
 if [ "$os" == "centos" ]; then
     echo "Thiết lập ipv6 và cài đặt apps cho CentOS"

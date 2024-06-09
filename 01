@@ -51,7 +51,7 @@ download_proxy() {
 
 # Hàm cấu hình 3proxy
 gen_3proxy() {
-    cat <<EOF
+    cat <<EOF >/usr/local/etc/3proxy/3proxy.cfg
 daemon
 maxconn 10000
 nserver 1.1.1.1

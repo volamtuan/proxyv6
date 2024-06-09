@@ -41,7 +41,7 @@ stacksize 6291456
 flush
 authcache user 86400
 auth none cache
-auth iponly capke
+auth iponly cache
 allow 14.224.163.75
 deny *
 

@@ -106,6 +106,17 @@ gen_ifconfig() {
 $(awk -F "/" '{print "ifconfig eth0 inet6 add " $5 "/48"}' ${WORKDATA})
 EOF
 }
+# Thiết lập tập tin /etc/rc.local để khởi động các cấu hình mạng và 3proxy khi hệ thống khởi động
+cat <<EOF >/etc/rc.d/rc.local
+#!/bin/bash
+touch /var/lock/subsys/local
+EOF
+
+# Cài đặt các ứng dụng cần thiết
+echo "Installing apps"
+yum -y install wget gcc net-tools bsdtar zip >/dev/null
+
+install_3proxy
 
 # Thiết lập cấu hình ban đầu
 echo "Thiết Lập Thư Mục"

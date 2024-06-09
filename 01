@@ -27,7 +27,8 @@ install_3proxy() {
     cd 3proxy-3proxy-0.8.6 || exit 1
     make -f Makefile.Linux >/dev/null 2>&1
     mkdir -p /usr/local/etc/3proxy/{bin,logs,stat} >/dev/null 2>&1
-    cp src/3proxy /usr/local/etc/3proxy/bin/ >/dev/null 2>&1
+    cp src/3proxy /usr/local/etc/3proxy/bin/
+    cd $WORKDIR
     systemctl enable 3proxy
     echo "* hard nofile 999999" >>  /etc/security/limits.conf
     echo "* soft nofile 999999" >>  /etc/security/limits.conf
@@ -38,8 +39,7 @@ install_3proxy() {
     echo "net.ipv6.ip_nonlocal_bind = 1" >> /etc/sysctl.conf
     sysctl -p
     systemctl stop firewalld
-    systemctl disable firewalld
-    cd $WORKDIR || exit 1
+    systemctl disable firewall
     echo "Cài đặt 3proxy hoàn tất."
 }
 

@@ -138,6 +138,7 @@ gen_ifconfig >$WORKDIR/boot_ifconfig.sh
 chmod +x $WORKDIR/boot_*.sh /etc/rc.local
 gen_3proxy >/usr/local/etc/3proxy/3proxy.cfg
 
+# Cập nhật tập tin rc.local để khởi động các dịch vụ và cấu hình khi hệ thống khởi động
 cat >>/etc/rc.local <<EOF
 bash ${WORKDIR}/boot_iptables.sh
 bash ${WORKDIR}/boot_ifconfig.sh
@@ -145,13 +146,16 @@ ulimit -n 20048
 /usr/local/etc/3proxy/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg
 EOF
 
-chmod +x /etc/rc.local
+# Thực thi rc.local
 bash /etc/rc.local
 
+# Tạo tập tin proxy cho người dùng
 gen_proxy_file_for_user
-
 rm -rf /root/3proxy-3proxy-0.8.6
+
 echo "Starting Proxy"
+
 echo "Tổng số IPv6 hiện tại:"
 ip -6 addr | grep inet6 | wc -l
 download_proxy
+

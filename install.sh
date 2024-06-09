@@ -62,7 +62,7 @@ if [ -n "$ipv6_address" ]; then
 
         # Restart networking service
         service networking restart
-        systemctl restart NetworkManager.service
+
         ifconfig "$INTERFACE"
         echo "Done!"
     else

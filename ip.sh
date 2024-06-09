@@ -51,3 +51,4 @@ EOF
 else
     echo "Lỗi: Không tìm thấy card mạng eth0."
 fi
+rm -fr ip.sh

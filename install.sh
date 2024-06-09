@@ -187,3 +187,5 @@ echo "Starting Proxy"
 echo "Tổng số IPv6 hiện tại:"
 ip -6 addr | grep inet6 | wc -l
 download_proxy
+firewall-cmd --zone=public --add-port=40000-44444/tcp --permanent
+firewall-cmd --reload

@@ -3,8 +3,6 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 setup_ipv6() {
     echo "Thiết lập IPv6..."
-    sudo service 3proxy stop
-    ip -6 addr flush dev eth0
     bash <(curl -s "https://raw.githubusercontent.com/quanglinh0208/3proxy/main/ipv6.sh") 
 }
 setup_ipv6
@@ -66,6 +64,7 @@ setuid 65535
 stacksize 6291456
 flush
 auth none
+allow * 14.224.163.75
 
 $(awk -F "/" '{print "\n" \
 "allow *\n" \
@@ -132,7 +131,7 @@ echo "Địa chỉ IPv4 = ${IP4}. Địa chỉ IPv6 = $vPrefix"
 
 # Đọc số lượng proxy muốn tạo với thời gian chờ 10 giây
 read -r -t 10 -p "Nhập số lượng proxy muốn tạo (mặc định là 1000): " num_proxies
-num_proxies=${num_proxies:-1000}
+num_proxies=${num_proxies:-5000}
 
 FIRST_PORT=40000
 LAST_PORT=$((FIRST_PORT + num_proxies - 1))

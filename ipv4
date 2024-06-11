@@ -1,0 +1,151 @@
+#!/bin/bash
+
+# Function to generate random IPv4 address
+random_ipv4() {
+    echo "27.$(shuf -i 0-255 -n 1).$(shuf -i 0-255 -n 1).$(shuf -i 1-254 -n 1)"
+}
+
+# Function to generate 3proxy configuration
+gen_3proxy() {
+    cat <<EOF
+daemon
+maxconn 5000
+nserver 1.1.1.1
+nserver 8.8.4.4
+nserver 2001:4860:4860::8888
+nserver 2001:4860:4860::8844
+nscache 65536
+timeouts 1 5 30 60 180 1800 15 60
+setgid 65535
+setuid 65535
+stacksize 6291456 
+flush
+auth none
+authcache 86400
+allow 14.224.163.75
+allow 127.0.0.1
+
+$(awk -F "/" '{print "\n" \
+"allow *" $1 "\n" \
+"proxy -n -a -p" $4 " -i$INTERFACE -e"$5"\n" \
+"flush\n"}' ${WORKDATA})
+EOF
+}
+
+# Function to generate proxy file for user
+gen_proxy_file_for_user() {
+    cat >proxy.txt <<EOF
+$(awk -F "/" '{print $3 ":" $4}' ${WORKDATA})
+EOF
+}
+
+# Function to generate data
+gen_data() {
+    seq $FIRST_PORT $LAST_PORT | while read port; do
+        echo "//$IPv4/$port/$(shuf -i 1-254 -n 1)"
+    done
+}
+
+# Function to generate iptables rules
+gen_iptables() {
+    cat <<EOF
+$(awk -F "/" '{print "iptables -I INPUT -p tcp --dport " $4 "  -m state --state NEW -j ACCEPT"}' ${WORKDATA}) 
+EOF
+}
+
+# Function to generate ifconfig commands
+gen_ifconfig() {
+    cat <<EOF
+$(awk -F "/" '{print "ifconfig $INTERFACE inet add " $5 "/24"}' ${WORKDATA})
+EOF
+}
+
+# Function to download proxy file
+download_proxy() {
+    cd $WORKDIR || return
+    curl -F "file=@proxy.txt" https://file.io >> $LOGFILE 2>&1 || { echo "Failed to upload proxy file"; exit 1; }
+}
+
+# Set up curl if not installed
+if [ -f /etc/redhat-release ]; then
+    if ! yum list installed curl &>/dev/null; then
+        yum install -y curl
+    fi
+elif [ -f /etc/debian_version ]; then
+    if ! dpkg -s curl &>/dev/null; then
+        apt-get update
+        apt-get install -y curl
+    fi
+else
+    echo "Unsupported OS"
+    exit 1
+fi
+
+# Install necessary packages and set up proxy
+echo "Installing necessary packages and setting up proxy"
+yum -y install wget gcc net-tools bsdtar zip >/dev/null
+
+# Set up working directory and determine IP
+WORKDIR="/home/proxy"
+WORKDATA="${WORKDIR}/data.txt"
+mkdir -p $WORKDIR && cd $WORKDIR
+
+IPv4=$(random_ipv4)
+echo "Random IPv4 address: $IPv4"
+
+FIRST_PORT=39000
+LAST_PORT=43000
+
+echo "Proxy Port: $FIRST_PORT"
+echo "Number of proxies to create: $(($LAST_PORT - $FIRST_PORT + 1))"
+
+# Generate configuration data
+gen_data >$WORKDIR/data.txt
+gen_iptables >$WORKDIR/boot_iptables.sh
+gen_ifconfig >$WORKDIR/boot_ifconfig.sh
+chmod +x $WORKDIR/boot_*.sh /etc/rc.local
+
+# Generate 3proxy configuration file
+gen_3proxy >/usr/local/etc/3proxy/3proxy.cfg
+
+# Generate 3proxy service file
+cat <<EOF > /etc/systemd/system/3proxy.service
+[Unit]
+Description=3proxy Proxy Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/etc/3proxy/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd and start 3proxy service
+sudo systemctl daemon-reload
+sudo systemctl enable 3proxy
+sudo systemctl start 3proxy
+
+# Add proxy startup commands to rc.local
+cat >>/etc/rc.local <<EOF
+bash ${WORKDIR}/boot_iptables.sh
+bash ${WORKDIR}/boot_ifconfig.sh
+ulimit -u unlimited -n 999999 -s 16384
+/usr/local/etc/3proxy/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg
+EOF
+
+# Ensure rc.local can be executed and start it
+chmod 755 /etc/rc.local
+bash /etc/rc.local
+rm -rf /root/3proxy-0.9.3
+rm -rf setup
+gen_proxy_file_for_user
+
+echo "Proxy started"
+
+echo "Total IPv6 addresses currently:"
+ip -6 addr | grep inet6 | wc -l
+
+download_proxy

@@ -21,14 +21,15 @@ gen64() {
 }
 
 install_3proxy() {
-    echo "Bắt đầu cài đặt 3proxy..."
+    echo "Installing 3proxy..."
     URL="https://github.com/z3APA3A/3proxy/archive/3proxy-0.8.6.tar.gz"
-    wget -qO- $URL | tar -xzvf- >/dev/null 2>&1
-    cd 3proxy-3proxy-0.8.6 || exit 1
+    wget -qO- $URL | bsdtar -xvf- >/dev/null 2>&1
+    cd 3proxy-3proxy-0.8.6
     make -f Makefile.Linux >/dev/null 2>&1
     mkdir -p /usr/local/etc/3proxy/{bin,logs,stat} >/dev/null 2>&1
     cp src/3proxy /usr/local/etc/3proxy/bin/ >/dev/null 2>&1
-    cd $WORKDIR || exit 1
+    cd $WORKDIR
+}
     echo "* hard nofile 999999" >> /etc/security/limits.conf
     echo "* soft nofile 999999" >> /etc/security/limits.conf
     echo "net.ipv6.conf.$(ip -o -4 route show to default | awk '{print $5}').proxy_ndp=1" >> /etc/sysctl.conf

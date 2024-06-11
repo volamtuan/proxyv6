@@ -19,7 +19,6 @@ gen64() {
     }
     echo "$1:$(ip64):$(ip64):$(ip64):$(ip64)"
 }
-
 install_3proxy() {
     echo "Installing 3proxy..."
     URL="https://github.com/z3APA3A/3proxy/archive/refs/tags/0.8.13.tar.gz"
@@ -38,8 +37,6 @@ install_3proxy() {
     echo "net.ipv6.ip_nonlocal_bind=1" >> /etc/sysctl.conf
     echo "Cài đặt 3proxy hoàn tất."
 }
-
-install_3proxy
 
 download_proxy() {
     cd $WORKDIR || return

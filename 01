@@ -21,32 +21,14 @@ gen64() {
 }
 
 install_3proxy() {
-    # Kiểm tra quyền root
-    if [ "$EUID" -ne 0 ]; then
-        echo "Script cần chạy với quyền root hoặc thông qua sudo."
-        exit 1
-    fi
-
     echo "Bắt đầu cài đặt 3proxy..."
-    URL="https://github.com/z3APA3A/3proxy/archive/refs/tags/0.8.6.tar.gz"
-
-    # Tạo thư mục tạm thời
-    TEMP_DIR=$(mktemp -d)
-    cd "$TEMP_DIR" || exit 1
-
-    wget -qO- "$URL" | tar -xzvf- >/dev/null 2>&1
-    cd 3proxy-0.8.6 || exit 1
+    URL="https://github.com/z3APA3A/3proxy/archive/3proxy-0.8.6.tar.gz"
+    wget -qO- $URL | tar -xzvf- >/dev/null 2>&1
+    cd 3proxy-3proxy-0.8.6 || exit 1
     make -f Makefile.Linux >/dev/null 2>&1
-
-    # Tạo thư mục cài đặt và sao chép tệp nhị phân
-    mkdir -p /usr/local/etc/3proxy/{bin,logs,stat}
-    cp src/3proxy /usr/local/etc/3proxy/bin/
-
-    # Trở về thư mục làm việc ban đầu
-    cd -
-    rm -rf "$TEMP_DIR"
-
-    # Thiết lập hệ thống
+    mkdir -p /usr/local/etc/3proxy/{bin,logs,stat} >/dev/null 2>&1
+    cp src/3proxy /usr/local/etc/3proxy/bin/ >/dev/null 2>&1
+    cd $WORKDIR || exit 1
     echo "* hard nofile 999999" >> /etc/security/limits.conf
     echo "* soft nofile 999999" >> /etc/security/limits.conf
     echo "net.ipv6.conf.$(ip -o -4 route show to default | awk '{print $5}').proxy_ndp=1" >> /etc/sysctl.conf
@@ -71,8 +53,6 @@ install_3proxy() {
 
     echo "Cài đặt 3proxy hoàn tất."
 }
-
-install_3proxy
 
 # Hàm tải file proxy.txt
 download_proxy() {

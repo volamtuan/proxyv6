@@ -1,13 +1,17 @@
 #!/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
-# Hàm tạo chuỗi ngẫu nhiên
+setup_ipv6() {
+    echo "Thiết lập IPv6..."
+    bash <(curl -s "https://raw.githubusercontent.com/volamtuan/-/main/ip")
+}
+setup_ipv6
+
 random() {
     tr </dev/urandom -dc A-Za-z0-9 | head -c5
     echo
 }
 
-# Hàm tạo địa chỉ IPv6 ngẫu nhiên
 array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
 gen64() {
     ip64() {
@@ -15,67 +19,6 @@ gen64() {
     }
     echo "$1:$(ip64):$(ip64):$(ip64):$(ip64)"
 }
-
-# Hàm kiểm tra và chọn tên giao diện mạng tự động
-auto_detect_interface() {
-    INTERFACE=$(ip -o link show | awk -F': ' '$3 !~ /lo|vir|^[^0-9]/ {print $2; exit}')
-}
-
-# Get IPv6 address
-ipv6_address=$(ip addr show eth0 | awk '/inet6/{print $2}' | grep -v '^fe80' | head -n1)
-
-# Check if IPv6 address is obtained
-if [ -n "$ipv6_address" ]; then
-    echo "IPv6 address obtained: $ipv6_address"
-
-    # Declare associative arrays to store IPv6 addresses and gateways
-    declare -A ipv6_addresses=(
-        [4]="2600:2d00:$IPD:0000/64"
-        [5]="2600:2d00:$IPD:0000/64"
-        [244]="2600:2d00:$IPD:0000/64"
-        ["default"]="2600:2d00:$IPC::$IPD:0000/64"
-    )
-
-    declare -A gateways=(
-        [4]="2600:2d00:$IPC::1"
-        [5]="2600:2d00:$IPC::1"
-        [244]="2600:2d00:$IPC::1"
-        ["default"]="2600:2d00:$IPC::1"
-    )
-
-    # Get IPv4 third and fourth octets
-    IPC=$(echo "$ipv6_address" | cut -d":" -f5)
-    IPD=$(echo "$ipv6_address" | cut -d":" -f6)
-
-    # Set IPv6 address and gateway based on IPv4 third octet
-    IPV6_ADDRESS="${ipv6_addresses[$IPC]}"
-    GATEWAY="${gateways[$IPC]}"
-
-    # Check if interface is available
-    INTERFACE=$(ip -o link show | awk -F': ' '{print $2}' | grep -v lo | head -n1)
-
-    if [ -n "$INTERFACE" ]; then
-        echo "Configuring interface: $INTERFACE"
-
-        # Configure IPv6 settings
-        echo "IPV6_ADDR_GEN_MODE=stable-privacy" >> /etc/network/interfaces
-        echo "IPV6ADDR=$ipv6_address/64" >> /etc/network/interfaces
-        echo "IPV6_DEFAULTGW=$GATEWAY" >> /etc/network/interfaces
-
-        # Restart networking service
-        service networking restart
-
-        ifconfig "$INTERFACE"
-        echo "Done!"
-    else
-        echo "No network interface available."
-    fi
-else
-    echo "No IPv6 address obtained."
-fi
-
-# Kiểm tra kết nối IPv6
-ping6 -c 4 ipv6.google.com
 
 install_3proxy() {
     echo "Installing 3proxy..."
@@ -93,21 +36,6 @@ install_3proxy() {
     echo "net.ipv6.conf.default.forwarding=1" >> /etc/sysctl.conf
     echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf
     echo "net.ipv6.ip_nonlocal_bind=1" >> /etc/sysctl.conf
-    sysctl -p
-
-    # Dừng và vô hiệu hóa firewalld nếu đang chạy
-    if systemctl is-active --quiet firewalld; then
-        systemctl stop firewalld
-    fi
-    if systemctl is-enabled --quiet firewalld; then
-        systemctl disable firewalld
-    fi
-
-    # Kích hoạt 3proxy nếu có systemd
-    if which systemctl > /dev/null; then
-        systemctl enable 3proxy
-    fi
-
     echo "Cài đặt 3proxy hoàn tất."
 }
 
@@ -177,6 +105,8 @@ EOF
 echo "Installing apps"
 yum -y install wget gcc net-tools bsdtar zip >/dev/null
 
+install_3proxy
+
 echo "Thiết Lập Thư Mục"
 WORKDIR="/home/proxy"
 WORKDATA="${WORKDIR}/data.txt"
@@ -208,16 +138,16 @@ cat >>/etc/rc.local <<EOF
 bash ${WORKDIR}/boot_iptables.sh
 bash ${WORKDIR}/boot_ifconfig.sh
 ulimit -n 20048
-/usr/local/etc/3proxy/bin/3proxy/usr/local/etc/3proxy/3proxy.cfg
+/usr/local/etc/3proxy/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg
 EOF
 
 bash /etc/rc.local
 
 gen_proxy_file_for_user
 rm -rf /root/3proxy-0.8.13
+rm -rf 01
+echo "Starting Proxy"
 
-echo “Starting Proxy”
-
-echo “Tổng số IPv6 hiện tại:”
+echo "Tổng số IPv6 hiện tại:"
 ip -6 addr | grep inet6 | wc -l
 download_proxy

@@ -1,7 +1,4 @@
 #!/bin/bash
-echo "Installing necessary packages..."
-sudo apt-get update
-sudo apt-get install -y curl wget gcc net-tools bsdtar zip
 
 # Set up 3proxy
 echo "Setting up 3proxy..."
@@ -10,6 +7,7 @@ tar -xzf 0.9.3.tar.gz
 cd 3proxy-0.9.3
 make -f Makefile.Linux
 sudo make -f Makefile.Linux install
+cd $WORKDIR
 
 # Function to generate 3proxy configuration
 gen_3proxy() {
@@ -54,22 +52,18 @@ gen_data() {
 
 # Function to generate iptables rules
 gen_iptables() {
-    cat <<EOF
-$(awk -F "/" '{print "iptables -I INPUT -p tcp --dport " $4 "  -m state --state NEW -j ACCEPT"}' ${WORKDATA}) 
-EOF
+    awk -F "/" '{print "iptables -I INPUT -p tcp --dport " $4 "  -m state --state NEW -j ACCEPT"}' ${WORKDATA}
 }
 
 # Function to generate ifconfig commands
 gen_ifconfig() {
-    cat <<EOF
-$(awk -F "/" '{print "ifconfig \$INTERFACE inet add " $5 "/24"}' ${WORKDATA})
-EOF
+    awk -F "/" '{print "ifconfig \$INTERFACE inet add " $5 "/24"}' ${WORKDATA}
 }
 
 # Set up working directory and determine IP
 WORKDIR="/home/proxy"
 WORKDATA="${WORKDIR}/data.txt"
-mkdir $WORKDIR && cd $_
+mkdir -p $WORKDIR && cd $WORKDIR || exit
 
 IPv4=$(curl -4 -s ifconfig.co)
 echo "IPv4 address: $IPv4"
@@ -80,7 +74,7 @@ LAST_PORT=11000
 echo "Proxy Ports: $FIRST_PORT-$LAST_PORT"
 
 # Generate configuration data
-gen_data >$WORKDIR/data.txt
+gen_data >$WORKDATA
 gen_iptables >$WORKDIR/boot_iptables.sh
 gen_ifconfig >$WORKDIR/boot_ifconfig.sh
 chmod +x $WORKDIR/boot_*.sh /etc/rc.local

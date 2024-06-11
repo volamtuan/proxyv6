@@ -21,67 +21,6 @@ gen64() {
     }
     echo "$1:$(ip64):$(ip64):$(ip64):$(ip64)"
 }
-
-# Hàm kiểm tra và chọn tên giao diện mạng tự động
-auto_detect_interface() {
-    INTERFACE=$(ip -o link show | awk -F': ' '$3 !~ /lo|vir|^[^0-9]/ {print $2; exit}')
-}
-
-# Get IPv6 address
-ipv6_address=$(ip addr show eth0 | awk '/inet6/{print $2}' | grep -v '^fe80' | head -n1)
-
-# Check if IPv6 address is obtained
-if [ -n "$ipv6_address" ];n then
-    echo "IPv6 address obtained: $ipv6_address"
-
-    # Declare associative arrays to store IPv6 addresses and gateways
-    declare -A ipv6_addresses=(
-        [4]="2600:2d00:$IPD:0000/64"
-        [5]="2600:2d00:$IPD:0000/64"
-        [244]="2600:2d00:$IPD:0000/64"
-        ["default"]="2600:2d00:$IPC::$IPD:0000/64"
-    )
-
-    declare -A gateways=(
-        [4]="2600:2d00:$IPC::1"
-        [5]="2600:2d00:$IPC::1"
-        [244]="2600:2d00:$IPC::1"
-        ["default"]="2600:2d00:$IPC::1"
-    )
-
-    # Get IPv4 third and fourth octets
-    IPC=$(echo "$ipv6_address" | cut -d":" -f5)
-    IPD=$(echo "$ipv6_address" | cut -d":" -f6)
-
-    # Set IPv6 address and gateway based on IPv4 third octet
-    IPV6_ADDRESS="${ipv6_addresses[$IPC]}"
-    GATEWAY="${gateways[$IPC]}"
-
-    # Check if interface is available
-    INTERFACE=$(ip -o link show | awk -F': ' '{print $2}' | grep -v lo | head -n1)
-
-    if [ -n "$INTERFACE" ]; then
-        echo "Configuring interface: $INTERFACE"
-
-        # Configure IPv6 settings
-        echo "IPV6_ADDR_GEN_MODE=stable-privacy" >> /etc/network/interfaces
-        echo "IPV6ADDR=$ipv6_address/64" >> /etc/network/interfaces
-        echo "IPV6_DEFAULTGW=$GATEWAY" >> /etc/network/interfaces
-
-        # Restart networking service
-        service networking restart
-
-        ifconfig "$INTERFACE"
-        echo "Done!"
-    else
-        echo "No network interface available."
-    fi
-else
-    echo "No IPv6 address obtained."
-fi
-
-# Kiểm tra kết nối IPv6
-ping6 -c 4 ipv6.google.com
 install_3proxy() {
     URL="https://github.com/3proxy/3proxy/archive/refs/tags/0.9.4.tar.gz"
     wget -qO- $URL | bsdtar -xvf-

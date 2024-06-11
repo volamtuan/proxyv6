@@ -1,50 +1,15 @@
-#!/bin/sh
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-
-random() {
-    tr </dev/urandom -dc A-Za-z0-9 | head -c5
-    echo
-}
-
-array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
-gen64() {
-    ip64() {
-        echo "${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}"
-    }
-    echo "$1:$(ip64):$(ip64):$(ip64):$(ip64)"
-}
-
-install_3proxy() {
-    echo "installing 3proxy"
-    URL="https://github.com/z3APA3A/3proxy/archive/3proxy-0.8.6.tar.gz"
-    wget -qO- $URL | bsdtar -xvf-
-    cd 3proxy-3proxy-0.8.6
-    make -f Makefile.Linux
-    mkdir -p /usr/local/etc/3proxy/{bin,logs,stat}
-    cp src/3proxy /usr/local/etc/3proxy/bin/
-    cd $WORKDIR
-}
-
-# Install necessary packages
+#!/bin/bash
 echo "Installing necessary packages..."
 sudo apt-get update
 sudo apt-get install -y curl wget gcc net-tools bsdtar zip
 
-# Install Tor
-echo "Installing Tor..."
-sudo apt-get install -y tor
-sudo yum install epel-release
-sudo yum install tor
-
-# Set up Tor configuration
-echo "Setting up Tor configuration..."
-cat <<EOF | sudo tee /etc/tor/torrc
-SocksPort 9050
-SocksListenAddress 127.0.0.1
-EOF
-
-# Restart Tor service
-sudo systemctl restart tor
+# Set up 3proxy
+echo "Setting up 3proxy..."
+wget --no-check-certificate https://github.com/z3APA3A/3proxy/archive/0.9.3.tar.gz
+tar -xzf 0.9.3.tar.gz
+cd 3proxy-0.9.3
+make -f Makefile.Linux
+sudo make -f Makefile.Linux install
 
 # Function to generate 3proxy configuration
 gen_3proxy() {
@@ -109,8 +74,8 @@ mkdir $WORKDIR && cd $_
 IPv4=$(curl -4 -s ifconfig.co)
 echo "IPv4 address: $IPv4"
 
-FIRST_PORT=39000
-LAST_PORT=39002
+FIRST_PORT=10000
+LAST_PORT=11000
 
 echo "Proxy Ports: $FIRST_PORT-$LAST_PORT"
 
@@ -152,8 +117,10 @@ ulimit -u unlimited -n 999999 -s 16384
 EOF
 
 # Ensure rc.local can be executed and start it
-chmod 755 /etc/rc.local
-bash /etc/rc.local
+sudo chmod 755 /etc/rc.local
+sudo bash /etc/rc.local
 
+# Generate proxy file for user
 gen_proxy_file_for_user
-echo "Starting Proxy"
+
+echo "Proxy server setup complete."

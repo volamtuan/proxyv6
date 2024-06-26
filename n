@@ -2,7 +2,7 @@
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 # Lấy tên giao diện mạng
-interface=$(ip link show | awk -F': ' '/^[0-9]+:/ {print $2; exit}')
+interface=$(ip -o -4 route show to default | awk '{print $5}')
 
 # Hiển thị tên của card mạng
 echo "Card mạng là: $interface"
@@ -42,7 +42,7 @@ install_3proxy() {
     systemctl enable 3proxy
     echo "* hard nofile 999999" >>  /etc/security/limits.conf
     echo "* soft nofile 999999" >>  /etc/security/limits.conf
-    echo "net.ipv6.conf.${NETWORK_INTERFACE_NAME}.proxy_ndp=1" >> /etc/sysctl.conf
+    echo "net.ipv6.conf.${interface}.proxy_ndp=1" >> /etc/sysctl.conf
     echo "net.ipv6.conf.all.proxy_ndp=1" >> /etc/sysctl.conf
     echo "net.ipv6.conf.default.forwarding=1" >> /etc/sysctl.conf
     echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf
@@ -90,7 +90,7 @@ gen_data() {
 }
 
 gen_iptables() {
-    cat <<EOF > $WORKDIR/boot_iptables.sh ơi
+    cat <<EOF > $WORKDIR/boot_iptables.sh
 $(awk -F "/" '{print "iptables -I INPUT -p tcp --dport " $4 "  -m state --state NEW -j ACCEPT"}' ${WORKDATA})
 EOF
 }
@@ -109,9 +109,6 @@ EOF
 echo "Installing necessary packages..."
 yum -y install wget gcc net-tools bsdtar zip >/dev/null 2>&1
 
-install_3proxy
-
-echo "Working folder = /home/cloudfly"
 WORKDIR="/home/cloudfly"
 WORKDATA="${WORKDIR}/data.txt"
 mkdir -p $WORKDIR && cd $WORKDIR
@@ -124,31 +121,31 @@ echo "Internal IP = ${IP4}. External subnet for IPv6 = ${IP6}"
 read -p "Nhập số lượng muốn tạo: " PORT_COUNT
 
 if [[ $PORT_COUNT =~ ^[0-9]+$ && $PORT_COUNT -gt 0 ]]; then
-echo "Đang tạo $PORT_COUNT cổng port..."
-FIRST_PORT=10000
-LAST_PORT=$((FIRST_PORT + PORT_COUNT - 1))
+    echo "Đang tạo $PORT_COUNT cổng port..."
+    FIRST_PORT=22222
+    LAST_PORT=$((FIRST_PORT + PORT_COUNT - 1))
 
-gen_data >$WORKDIR/data.txt
-gen_iptables >$WORKDIR/boot_iptables.sh
-gen_ifconfig >$WORKDIR/boot_ifconfig.sh
-chmod +x $WORKDIR/boot_*.sh /etc/rc.local
+    gen_data >$WORKDIR/data.txt
+    gen_iptables >$WORKDIR/boot_iptables.sh
+    gen_ifconfig >$WORKDIR/boot_ifconfig.sh
+    chmod +x $WORKDIR/boot_*.sh /etc/rc.local
 
-gen_3proxy >/usr/local/etc/3proxy/3proxy.cfg
+    gen_3proxy >/usr/local/etc/3proxy/3proxy.cfg
 
-cat >>/etc/rc.local <<EOF
+    cat >>/etc/rc.local <<EOF
 systemctl start NetworkManager.service
-ifup ${NETWORK_INTERFACE_NAME}
+ifup $interface
 bash ${WORKDIR}/boot_iptables.sh
 bash ${WORKDIR}/boot_ifconfig.sh
 ulimit -n 65535
 /usr/local/etc/3proxy/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg &
 EOF
 
-chmod +x /etc/rc.local
-bash /etc/rc.local
+    chmod +x /etc/rc.local
+    bash /etc/rc.local
 
-gen_proxy_file_for_user
-rm -rf /root/3proxy-0.8.13
+    gen_proxy_file_for_user
+    rm -rf /root/3proxy-0.8.13
 
     echo "Starting Proxy"
 else

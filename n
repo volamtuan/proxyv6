@@ -35,11 +35,23 @@ install_3proxy() {
     make -f Makefile.Linux >/dev/null 2>&1
     mkdir -p /usr/local/etc/3proxy/{bin,logs,stat} >/dev/null 2>&1
     cp src/3proxy /usr/local/etc/3proxy/bin/ >/dev/null 2>&1
-    cd -
+    cd $WORKDIR 
+    systemctl daemon-reload
+    systemctl enable 3proxy
+    echo "* hard nofile 999999" >>  /etc/security/limits.conf
+    echo "* soft nofile 999999" >>  /etc/security/limits.conf
+    echo "net.ipv6.conf.${NETWORK_INTERFACE_NAME}.proxy_ndp=1" >> /etc/sysctl.conf
+    echo "net.ipv6.conf.all.proxy_ndp=1" >> /etc/sysctl.conf
+    echo "net.ipv6.conf.default.forwarding=1" >> /etc/sysctl.conf
+    echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf
+    echo "net.ipv6.ip_nonlocal_bind = 1" >> /etc/sysctl.conf
+    sysctl -p
+    systemctl stop firewalld
+    systemctl disable firewalld
 }
 
 gen_3proxy() {
-    cat <<EOF > /usr/local/etc/3proxy/3proxy.cfg
+    cat <<EOF >
 daemon
 maxconn 10000
 nserver 1.1.1.1
@@ -53,6 +65,7 @@ setuid 65535
 stacksize 6291456 
 flush
 allow 14.224.163.75
+allow 127.0.0.1
 
 $(awk -F "/" '{print "\n" \
 "auth none\n" \
@@ -75,7 +88,7 @@ gen_data() {
 }
 
 gen_iptables() {
-    cat <<EOF > $WORKDIR/boot_iptables.sh
+    cat <<EOF > $WORKDIR/boot_iptables.sh ơi
 $(awk -F "/" '{print "iptables -I INPUT -p tcp --dport " $4 "  -m state --state NEW -j ACCEPT"}' ${WORKDATA})
 EOF
 }
@@ -109,27 +122,31 @@ echo "Internal IP = ${IP4}. External subnet for IPv6 = ${IP6}"
 read -p "Nhập số lượng muốn tạo: " PORT_COUNT
 
 if [[ $PORT_COUNT =~ ^[0-9]+$ && $PORT_COUNT -gt 0 ]]; then
-    echo "Đang tạo $PORT_COUNT cổng port..."
-    FIRST_PORT=10000
-    LAST_PORT=$((FIRST_PORT + PORT_COUNT - 1))
+echo "Đang tạo $PORT_COUNT cổng port..."
+FIRST_PORT=10000
+LAST_PORT=$((FIRST_PORT + PORT_COUNT - 1))
 
-    gen_data >$WORKDIR/data.txt
-    gen_iptables
-    gen_ifconfig
-    chmod +x $WORKDIR/boot_*.sh /etc/rc.local
+gen_data >$WORKDIR/data.txt
+gen_iptables >$WORKDIR/boot_iptables.sh
+gen_ifconfig >$WORKDIR/boot_ifconfig.sh
+chmod +x $WORKDIR/boot_*.sh /etc/rc.local
 
-    cat >> /etc/rc.local <<EOF
+gen_3proxy >/usr/local/etc/3proxy/3proxy.cfg
+
+cat >>/etc/rc.local <<EOF
+systemctl start NetworkManager.service
+ifup ${NETWORK_INTERFACE_NAME}
 bash ${WORKDIR}/boot_iptables.sh
 bash ${WORKDIR}/boot_ifconfig.sh
-ulimit -n 10048
-/usr/local/etc/3proxy/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg
+ulimit -n 65535
+/usr/local/etc/3proxy/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg &
 EOF
 
-    bash /etc/rc.local
+chmod +x /etc/rc.local
+bash /etc/rc.local
 
-    gen_3proxy
-    gen_proxy_file_for_user
-    rm -rf /root/3proxy-0.8.13
+gen_proxy_file_for_user
+rm -rf /root/3proxy-0.8.13
 
     echo "Starting Proxy"
 else

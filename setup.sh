@@ -22,6 +22,7 @@ setup_ipv6() {
     echo "Thiết lập Cấu Hình Mạng.."
     sudo bash <(curl -s "https://raw.githubusercontent.com/volamtuan/-/main/ip")
 }
+setup_ipv6
 
 install_3proxy() {
     echo "Installing 3proxy..."

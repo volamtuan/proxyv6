@@ -3,7 +3,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 setup_ipv6() {
     echo "Thiết lập Cấu Hình Mạng.."
-    bash <(curl -s "https://raw.githubusercontent.com/volamtuan/-/main/ip")
+    ip -6 addr flush dev eth0
+    ip -6 addr flush dev ens33
+    bash <(curl -s "https://raw.githubusercontent.com/volamtuan/-/main/ip.sh")
 }
 setup_ipv6
 

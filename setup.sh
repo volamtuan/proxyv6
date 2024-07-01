@@ -5,6 +5,7 @@ setup_ipv6() {
     echo "Thiết lập Cấu Hình Mạng.."
     sudo bash <(curl -s "https://raw.githubusercontent.com/volamtuan/-/main/ip")
 }
+setup_ipv6
 
 auto_detect_interface() {
     IFCFG=$(ip -o link show | awk -F': ' '$3 !~ /lo|vir|^[^0-9]/ {print $2; exit}')
@@ -31,15 +32,17 @@ install_3proxy() {
     make -f Makefile.Linux >/dev/null 2>&1
     mkdir -p /usr/local/etc/3proxy/{bin,logs,stat} >/dev/null 2>&1
     cp src/3proxy /usr/local/etc/3proxy/bin/ >/dev/null 2>&1
-    cd /home/vlt  # Sửa đường dẫn tuyệt đối
+    cd /home/vlt  # Đã sửa thành đường dẫn tuyệt đối
     systemctl link /usr/lib/systemd/system/3proxy.service
-    echo "* hard nofile 999999" | sudo tee -a /etc/security/limits.conf
-    echo "* soft nofile 999999" | sudo tee -a /etc/security/limits.conf
-    echo "net.ipv6.conf.${IFCFG}.proxy_ndp=1" | sudo tee -a /etc/sysctl.conf
-    echo "net.ipv6.conf.all.proxy_ndp=1" | sudo tee -a /etc/sysctl.conf
-    echo "net.ipv6.conf.default.forwarding=1" | sudo tee -a /etc/sysctl.conf
-    echo "net.ipv6.conf.all.forwarding=1" | sudo tee -a /etc/sysctl.conf
-    echo "net.ipv6.ip_nonlocal_bind = 1" | sudo tee -a /etc/sysctl.conf
+    systemctl daemon-reload
+    systemctl enable 3proxy
+    echo "* hard nofile 999999" >> /etc/security/limits.conf
+    echo "* soft nofile 999999" >> /etc/security/limits.conf
+    echo "net.ipv6.conf.${IFCFG}.proxy_ndp=1" >> /etc/sysctl.conf
+    echo "net.ipv6.conf.all.proxy_ndp=1" >> /etc/sysctl.conf
+    echo "net.ipv6.conf.default.forwarding=1" >> /etc/sysctl.conf
+    echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf
+    echo "net.ipv6.ip_nonlocal_bind = 1" >> /etc/sysctl.conf
     systemctl stop firewalld
     systemctl disable firewalld
     echo "fs.file-max = 1000000" | sudo tee -a /etc/sysctl.conf
@@ -63,39 +66,44 @@ nscache6 65536
 timeouts 1 5 30 60 180 1800 15 60
 setgid 65535
 setuid 65535
-stacksize 6291456
+stacksize 6291456 
 flush
 auth none
 allow 14.224.163.75
 allow 127.0.0.1
 
-$(awk -F'/' '{print "proxy -6 -n -a -p" $4 " -i" $3 " -e" $5 "\nflush\n"}' ${WORKDATA})
+$(awk -F "/" '{print "proxy -6 -n -a -p" $4 " -i" $3 " -e"$5"\nflush\n"}' ${WORKDATA})
 EOF
 }
 
 gen_proxy_file_for_user() {
-    awk -F'/' '{print $3 ":" $4}' ${WORKDATA} > /home/vlt/proxy.txt
+    awk -F "/" '{print $3 ":" $4}' ${WORKDATA} > proxy.txt
 }
 
 gen_data() {
     seq $FIRST_PORT $LAST_PORT | while read port; do
         entry="//$IP4/$port/$(gen64 $IP6)"
         echo "$entry"
-        echo "$IP4:$port" >> "/home/vlt/ipv4.txt"
-        echo "$(gen64 $IP6)" >> "/home/vlt/ipv6.txt"
-    done > /home/vlt/data.txt
+        echo "$IP4:$port" >> "$WORKDIR/ipv4.txt"
+        echo "$(gen64 $IP6)" >> "$WORKDIR/ipv6.txt"
+    done > $WORKDATA
 }
 
 gen_iptables() {
-    awk -F'/' '{print "iptables -I INPUT -p tcp --dport " $4 " -m state --state NEW -j ACCEPT"}' ${WORKDATA} > /home/vlt/boot_iptables.sh
+    awk -F "/" '{print "iptables -I INPUT -p tcp --dport " $4 " -m state --state NEW -j ACCEPT"}' ${WORKDATA}
 }
 
 gen_ifconfig() {
-    awk -F'/' '{print "ifconfig ${IFCFG} inet6 add " $5 "/64"}' ${WORKDATA} > /home/vlt/boot_ifconfig.sh
+    awk -F "/" '{print "ifconfig ${IFCFG} inet6 add " $5 "/64"}' ${WORKDATA}
+}
+
+download_proxy() {
+    cd $WORKDIR || return
+    curl -F "file=@proxy.txt" https://file.io
 }
 
 rotate_ipv6() {
-    echo "Rotating IPv6 addresses..."
+    echo "Xoay IPv6 Tự Động..."
     IP6=$(curl -6 -s icanhazip.com | cut -f1-4 -d':')
     gen_data
     gen_3proxy
@@ -103,7 +111,7 @@ rotate_ipv6() {
     gen_iptables
     gen_ifconfig
 
-    echo "Restarting 3proxy service..."
+    echo "Restarting Proxy .."
     systemctl restart 3proxy
     restart_result=$?
 
@@ -117,53 +125,47 @@ rotate_ipv6() {
     fi
 }
 
+# Install dependencies
 echo "Installing apps"
 sudo yum -y install curl wget gcc net-tools bsdtar zip >/dev/null
 
 install_3proxy
 
-# Thiết lập thư mục làm việc
+# Setup work directory
 WORKDIR="/home/vlt"
 WORKDATA="${WORKDIR}/data.txt"
-mkdir -p $WORKDIR && cd $_
+mkdir $WORKDIR && cd $_
 
-# Lấy địa chỉ IP
+# Get IP addresses
 IP4=$(curl -4 -s icanhazip.com)
 IP6=$(curl -6 -s icanhazip.com | cut -f1-4 -d':')
 
 echo "IPv4 = ${IP4}"
 echo "IPv6 = ${IP6}"
 
-# Thiết lập cổng proxy và số lượng proxy tạo
 FIRST_PORT=10000
 LAST_PORT=12444
 
 echo "Cổng proxy: $FIRST_PORT"
 echo "Số lượng proxy tạo: $(($LAST_PORT - $FIRST_PORT + 1))"
 
-# Tạo dữ liệu cho proxy
-gen_data > $WORKDATA
-gen_iptables > $WORKDIR/boot_iptables.sh
-gen_ifconfig > $WORKDIR/boot_ifconfig.sh
+gen_data >$WORKDIR/data.txt
+gen_iptables >$WORKDIR/boot_iptables.sh
+gen_ifconfig >$WORKDIR/boot_ifconfig.sh
 chmod +x $WORKDIR/boot_*.sh
 
-# Tạo cấu hình 3proxy
 gen_3proxy
 
-# Thiết lập /etc/rc.local cho tính chất bền vững
+# Set up /etc/rc.local for persistence
 cat <<EOF | sudo tee /etc/rc.d/rc.local
 #!/bin/bash
 touch /var/lock/subsys/local
 systemctl start NetworkManager.service
-ifup ${IFCFG}
-systemctl start 3proxy
 bash ${WORKDIR}/boot_iptables.sh
 bash ${WORKDIR}/boot_ifconfig.sh
 ulimit -n 65535
 /usr/local/etc/3proxy/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg &
 EOF
-
-sudo chmod +x /etc/rc.d/rc.local
 
 # Tạo file dịch vụ systemd cho 3proxy
 cat <<EOF >/etc/systemd/system/3proxy.service
@@ -192,8 +194,7 @@ ConditionPathExists=/etc/rc.local
 
 [Service]
 Type=forking
-ExecStart=/etc/rc.local start
-TimeoutSec=0
+ExecStart=/etc/rc.local startTimeoutSec=0
 StandardOutput=tty
 RemainAfterExit=yes
 SysVStartPriority=99
@@ -202,27 +203,33 @@ SysVStartPriority=99
 WantedBy=multi-user.target
 EOF
 
-# Reload systemd để nhận thấy các thay đổi
 sudo systemctl daemon-reload
 
-# Enable và khởi động 3proxy
+Enable và khởi động 3proxy
+
 sudo systemctl enable 3proxy
 sudo systemctl start 3proxy
 
-# Tạo tệp proxy cho người dùng
+sudo chmod +x /etc/rc.d/rc.local
+
+Start necessary services and configurations
+
+sudo systemctl start NetworkManager.service
+bash ${WORKDIR}/boot_iptables.sh
+bash ${WORKDIR}/boot_ifconfig.sh
+ulimit -n 65535
+sudo /usr/local/etc/3proxy/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg &
+
+Generate proxy file for user
+
 gen_proxy_file_for_user
-
-Xóa thư mục tạm và tệp cài đặt 3proxy
-
-rm -rf /home/vlt/3proxy-0.9.4
+rm -rf /root/3proxy-0.9.4
 rm -rf setup.sh
-
 echo “Starting Proxy”
 
 echo “Tổng số IPv6 hiện tại:”
 ip -6 addr | grep inet6 | wc -l
-
-Vòng lặp để xoay vòng IPv6
+download_proxy
 
 while true; do
 rotate_ipv6

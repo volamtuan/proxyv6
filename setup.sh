@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 setup_ipv6() {
     echo "Thiết lập Cấu Hình Mạng.."

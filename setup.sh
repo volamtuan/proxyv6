@@ -3,7 +3,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 setup_ipv6() {
     echo "Thiết lập Cấu Hình Mạng.."
-    sudo bash <(curl -s "https://raw.githubusercontent.com/volamtuan/-/main/ip")
+    bash <(curl -s "https://raw.githubusercontent.com/volamtuan/-/main/ip")
 }
 setup_ipv6
 
